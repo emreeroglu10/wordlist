@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kelime Oyunu</title>
+    <style>
+        :root {
+            --c-black: #000000;
+            --c-dark: #12192b;
+            --c-gray: #636778;
+            --c-blue: #a8aeca;
+            --c-light: #d6dee7;
+            --c-red: #e74c3c;
+            --c-green: #2ecc71;
+            --c-gold: #f1c40f;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--c-dark);
+            color: var(--c-light);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        #loading-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: var(--c-dark); z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.5s ease-out;
+        }
+        .spinner {
+            width: 50px; height: 50px; border: 5px solid var(--c-gray);
+            border-top: 5px solid var(--c-light); border-radius: 50%;
+            animation: spin 1s linear infinite; margin-bottom: 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .designer-text { font-size: 0.9rem; letter-spacing: 1px; color: var(--c-blue); opacity: 0.8; margin-top: 10px; }
+
+        .app-container {
+            width: 100%; max-width: 450px; height: 100%; padding: 20px;
+            display: flex; flex-direction: column; position: relative;
+            opacity: 0; transition: opacity 0.5s ease-in;
+        }
+
+        .screen {
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            height: 100%; width: 100%; animation: fadeIn 0.4s ease;
+        }
+        .screen.active { display: flex; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .input-group { width: 100%; margin-bottom: 15px; text-align: left; }
+        label { display: block; margin-bottom: 5px; color: var(--c-blue); font-size: 0.9rem; font-weight: bold; }
+        input[type="text"], input[type="number"], select {
+            width: 100%; padding: 12px; background-color: var(--c-gray);
+            color: #fff; border: 1px solid var(--c-blue); border-radius: 10px;
+            font-size: 1rem; outline: none; transition: border-color 0.3s;
+        }
+        input:focus, select:focus { border-color: var(--c-light); }
+        
+        .error-message {
+            color: var(--c-red); font-weight: bold; margin-bottom: 15px;
+            display: none; animation: shake 0.3s;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .btn {
+            width: 100%; padding: 16px; border: none; border-radius: 12px;
+            font-size: 1.2rem; font-weight: bold; cursor: pointer; margin-top: 10px;
+            color: var(--c-dark); transition: 0.1s;
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn-start { background-color: var(--c-light); margin-top: 20px; }
+        .btn-ready { background-color: var(--c-green); color: white; box-shadow: 0 0 15px rgba(46, 204, 113, 0.4); }
+        .btn-reset { background-color: var(--c-gray); color: #fff; }
+
+        .top-scoreboard {
+            display: flex; justify-content: space-between; width: 100%;
+            background: rgba(255,255,255,0.05); padding: 10px 15px;
+            border-radius: 10px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1);
+        }
+        .team-score-box { text-align: center; font-size: 0.9rem; color: var(--c-blue); }
+        .team-score-box span { display: block; font-size: 1.2rem; font-weight: bold; color: #fff; }
+        .active-turn { color: var(--c-green); }
+
+        .game-info-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            width: 100%; margin-bottom: 10px; font-size: 1.1rem; color: var(--c-blue); font-weight: bold;
+        }
+        .timer-box {
+            font-family: monospace; font-size: 1.6rem; color: var(--c-light);
+            background: rgba(255,255,255,0.1); padding: 5px 10px; border-radius: 8px;
+        }
+
+        .card-container {
+            width: 100%; flex-grow: 1; display: flex; justify-content: center; align-items: center;
+            perspective: 1000px; margin-bottom: 20px; position: relative;
+        }
+        .word-card {
+            background-color: var(--c-light); color: var(--c-black);
+            width: 100%; height: 100%; max-height: 320px; border-radius: 20px;
+            display: flex; justify-content: center; align-items: center; padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+        .word-text { font-size: 2.4rem; font-weight: 800; text-align: center; line-height: 1.2; word-break: break-word; }
+        
+        .slide-right { transform: translateX(120%) rotate(15deg) !important; opacity: 0 !important; }
+        .slide-left { transform: translateX(-120%) rotate(-15deg) !important; opacity: 0 !important; }
+
+        .controls { display: flex; gap: 15px; width: 100%; }
+        .btn-game {
+            flex: 1; height: 70px; border-radius: 15px; font-size: 1.3rem;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .btn-pass { background-color: var(--c-gray); border: 2px solid var(--c-gray); }
+        .btn-correct { background-color: var(--c-blue); color: var(--c-black); }
+        .btn-pass.disabled { background-color: #343a40; border-color: #343a40; color: #6c757d; pointer-events: none; }
+
+        .ready-box { text-align: center; background: rgba(255,255,255,0.05); padding: 30px; border-radius: 20px; width: 100%; }
+        .team-highlight { font-size: 2.5rem; font-weight: 800; color: var(--c-light); margin: 20px 0; text-transform: uppercase; }
+        .round-badge { background: var(--c-blue); color: var(--c-black); padding: 5px 10px; border-radius: 5px; font-weight: bold; font-size: 0.9rem; }
+        .overtime-badge { background: var(--c-red); color: #fff; }
+
+        .score-detail { font-size: 1.2rem; margin: 10px 0; color: var(--c-blue); }
+        .big-score { font-size: 4rem; font-weight: 800; color: var(--c-light); }
+        
+        .winner-title { color: var(--c-gold); font-size: 2rem; margin-bottom: 10px; text-shadow: 0 0 10px rgba(241, 196, 15, 0.5); }
+        .winner-name { font-size: 3rem; font-weight: 900; color: #fff; margin-bottom: 30px; }
+        .confetti { font-size: 3rem; margin-bottom: 20px; display: block; animation: bounce 1s infinite; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+        .final-score-table {
+            width: 100%;
+            background: rgba(0,0,0,0.2);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .score-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-size: 1.2rem;
+        }
+        .score-row:last-child { border-bottom: none; }
+        .score-val { font-weight: bold; color: var(--c-green); font-size: 1.4rem; }
+
+    </style>
+</head>
+<body>
+
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <div style="font-size: 1.2rem; font-weight: bold; color: var(--c-light);">YÜKLENİYOR...</div>
+        <div class="designer-text">Designed by emreeroglu</div>
+    </div>
+
+    <div class="app-container" id="main-app">
+
+        <div id="setup-screen" class="screen active">
+            <h1>Oyun Kurulumu</h1>
+            
+            <div class="input-group">
+                <label>1. Takım Adı:</label>
+                <input type="text" id="team1Input" placeholder="Takım 1">
+            </div>
+            <div class="input-group">
+                <label>2. Takım Adı:</label>
+                <input type="text" id="team2Input" placeholder="Takım 2">
+            </div>
+
+            <div class="input-group">
+                <label>Raunt Sayısı (Toplam):</label>
+                <input type="number" id="roundInput" placeholder="Örn: 3" min="1">
+            </div>
+
+            <div style="display:flex; gap:10px;">
+                <div class="input-group">
+                    <label>Süre:</label>
+                    <select id="timeSelect">
+                        <option value="60">1 Dk</option>
+                        <option value="120" selected>2 Dk</option>
+                        <option value="180">3 Dk</option>
+                        <option value="240">4 Dk</option>
+                        <option value="300">5 Dk</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Pas Hakkı:</label>
+                    <select id="passSelect">
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5" selected>5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                        <option value="-1">Sınırsız</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="errorMsg" class="error-message">⚠️ Lütfen geçerli bir raunt sayısı girin!</div>
+
+            <button class="btn btn-start" onclick="validateAndStart()">KURULUMU TAMAMLA</button>
+        </div>
+
+        <div id="ready-screen" class="screen">
+            <div class="ready-box">
+                <span class="round-badge" id="roundBadge">1. RAUNT</span>
+                <h3 id="tieMessage" style="color:var(--c-gold); margin-top:10px; display:none;">EŞİTLİK BOZULMADI!</h3>
+                
+                <div style="margin-top:20px; opacity:0.7;">SIRADAKİ TAKIM</div>
+                <div id="readyTeamName" class="team-highlight">TAKIM ADI</div>
+                <p>Müziği açın, kulaklıkları takın!</p>
+                <button class="btn btn-ready" onclick="startGameRound()">HAZIRIM BAŞLA 🚀</button>
+            </div>
+        </div>
+
+        <div id="game-screen" class="screen">
+            <div class="top-scoreboard">
+                <div class="team-score-box" id="tsBox1">
+                    <div id="tsName1">Takım 1</div>
+                    <span id="tsScore1">0</span>
+                </div>
+                <div style="align-self:center; color:var(--c-gray);">VS</div>
+                <div class="team-score-box" id="tsBox2">
+                    <div id="tsName2">Takım 2</div>
+                    <span id="tsScore2">0</span>
+                </div>
+            </div>
+
+            <div class="game-info-bar">
+                <span id="currentTeamDisplay">Sıra: Takım 1</span>
+                <div class="timer-box" id="timerDisplay">00:00</div>
+            </div>
+
+            <div class="card-container">
+                <div id="wordCard" class="word-card">
+                    <span id="wordText" class="word-text">...</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button id="btnPass" class="btn btn-game btn-pass" onclick="handlePass()">PAS</button>
+                <button class="btn btn-game btn-correct" onclick="handleCorrect()">DOĞRU ✅</button>
+            </div>
+        </div>
+
+        <div id="turn-result-screen" class="screen">
+            <h2>Süre Doldu!</h2>
+            <div class="score-detail">Bu Tur Kazanılan Puan</div>
+            <div class="big-score" id="roundScoreDisplay">0</div>
+            
+            <div style="width:100%; border-top:1px solid var(--c-gray); margin:20px 0;"></div>
+            
+            <div class="score-detail">Toplam Puan Durumu</div>
+            <div style="display:flex; justify-content:space-around; width:100%; font-weight:bold; font-size:1.2rem;">
+                <div id="resT1">T1: 0</div>
+                <div id="resT2">T2: 0</div>
+            </div>
+
+            <button class="btn btn-start" onclick="nextTurnLogic()">SIRADAKİNE GEÇ</button>
+        </div>
+
+        <div id="game-over-screen" class="screen">
+            <span class="confetti">🎉🎉🎉</span>
+            <h1 class="winner-title">🏆 KAZANAN 🏆</h1>
+            <div id="winnerName" class="winner-name">TAKIM ADI</div>
+            
+            <div class="final-score-table">
+                <div class="score-row">
+                    <span id="finalT1Name">Takım 1</span>
+                    <span id="finalT1Score" class="score-val">0</span>
+                </div>
+                <div class="score-row">
+                    <span id="finalT2Name">Takım 2</span>
+                    <span id="finalT2Score" class="score-val">0</span>
+                </div>
+            </div>
+
+            <button class="btn btn-reset" onclick="resetGame()">ANA MENÜYE DÖN</button>
+        </div>
+
+    </div>
+
+    <script>
+        const wordPool = [
+            "Araba", "Bebek", "Patates", "Masa", "Kalem", "Telefon", "Balık", "Anne", "Baba", "Lamba",
+            "Pamuk", "Makas", "Bardak", "Çatal", "Kaşık", "Tabak", "Yastık", "Çarşaf", "Sabun", "Havlu",
+            "Ayna", "Tarak", "Koltuk", "Halı", "Perde", "Kapı", "Pencere", "Duvar", "Tavan", "Çatı",
+            "Bahçe", "Ağaç", "Çiçek", "Gül", "Papatya", "Lale", "Sümbül", "Menekşe", "Karpuz", "Kavun",
+            "Elma", "Armut", "Muz", "Çilek", "Kiraz", "Vişne", "Üzüm", "İncir", "Erik", "Şeftali",
+            "Kayısı", "Portakal", "Mandalina", "Limon", "Kedi", "Köpek", "Kuş", "Balina", "Yunus", "Hamsi",
+            "Tavuk", "Horoz", "İnek", "Koyun", "Keçi", "At", "Eşek", "Arı", "Kelebek", "Sinek",
+            "Böcek", "Örümcek", "Karınca", "Aslan", "Kaplan", "Ayı", "Fil", "Zürafa", "Maymun", "Zebra",
+            "Doktor", "Hemşire", "Polis", "Asker", "İtfaiye", "Pilot", "Şoför", "Terzi", "Berber", "Kuaför",
+            "Bakkal", "Manav", "Kasap", "Fırın", "Eczane", "Okul", "Sınıf", "Öğrenci", "Öğretmen", "Çanta",
+            "Bilgisayar", "Televizyon", "Buzdolabı", "Çamaşır Makinesi", "Bulaşık Makinesi", "Ütü", "Süpürge", "Radyo", "Kamera", "Fotoğraf",
+            "Mikrodalga", "Tost", "Hamburger", "Pizza", "Makarna", "Salata", "Çorba", "Köfte", "Döner", "İskender",
+            "Lahmacun", "Pide", "Kebap", "Baklava", "Kadayıf", "Sütlaç", "Kazandibi", "Dondurma", "Çikolata", "Bisküvi",
+            "Kraker", "Cips", "Kola", "Gazoz", "Ayran", "Meyve Suyu", "Kahve", "Çay", "Şeker", "Tuz",
+            "Karabiber", "Pul Biber", "Kekik", "Nane", "Maydanoz", "Dereotu", "Roka", "Tere", "Ispanak", "Pırasa",
+            "Kereviz", "Lahana", "Karnabahar", "Brokoli", "Bezelye", "Fasulye", "Nohut", "Mercimek", "Pirinç", "Bulgur",
+            "Kütüphane", "Hastane", "Postane", "Banka", "Otel", "Pansiyon", "Lokanta", "Restoran", "Kafe", "Pastane",
+            "Sinema", "Tiyatro", "Müze", "Sergi", "Konser", "Stadyum", "Park", "Lunapark", "Hayvanat Bahçesi", "Akvaryum",
+            "Alışveriş", "Mağaza", "Market", "Pazar", "Belediye", "Valilik", "Kaymakamlık", "Muhtarlık", "Adliye", "Karakol",
+            "Havalimanı", "Otogar", "İstasyon", "Liman", "İskele", "Durak", "Cadde", "Sokak", "Meydan", "Bulvar",
+            "Üniversite", "Laboratuvar", "Rehabilitasyon", "Alüminyum", "Greyfurt", "Şempanze", "Orangutan", "Bukalemun", "Suaygırı", "Gergedan",
+            "Dinozor", "Solucan", "Mühendislik", "Mimarlık", "Veteriner", "Psikolog", "Psikiyatrist", "Arkeolog", "Astronot", "Jandarma",
+            "Zabıta", "Kaymakam", "Vali", "Büyükelçi", "Cumhurbaşkanı", "Başbakan", "Milletvekili", "Vantilatör", "Kalorifer", "Radyatör",
+            "Jeneratör", "Asansör", "Helikopter", "Denizaltı", "Otomobil", "Motosiklet", "Kamyonet", "Minibüs", "Otobüs", "Tramvay",
+            "Metrobüs", "Feribot", "Şemsiye", "Yağmurluk", "Pardösü", "Kaban", "Ayakkabı", "Terlik", "Çorap", "Eldiven",
+            "Atkı", "Bere", "Mücevher", "Pırlanta", "Bilezik", "Kolye", "Küpe", "Yüzük", "Saat", "Gözlük",
+            "Lens", "Şampuan", "Deodorant", "Parfüm", "Kolonya", "Diş Macunu", "Fırça", "Cımbız", "Törpü", "Oje",
+            "Ruj", "Rimel", "Fondöten", "Pudra", "Allık", "Far", "Eyeliner", "Maskara", "Aseton", "Kulak Çubuğu",
+            "Peçete", "Mendil", "Bornoz", "Sünger", "Lif", "Kese", "Top", "Balon", "Biber", "Marul",
+            "Dolma", "Sarma", "Börek", "Çörek", "Simit", "Gazete", "Dergi", "Kitap", "Defter", "Silgi",
+            "Kutu", "Şişe", "Kova", "Kürek", "Kum", "Deniz", "Güneş", "Bulut", "Yağmur", "Kar",
+            "Şapka", "Mont", "Bot", "Kemer", "Düğme", "İğne", "İplik", "Kumaş", "Yün", "Şiş",
+            "Keman", "Gitar", "Davul", "Flüt", "Saz", "Piyano", "Nota", "Şarkı", "Dans", "Bale",
+            "Sahne", "Sehpa", "Sandalye", "Çekmece", "Gardırop", "Vestiyer", "Kitaplık", "Abajur", "Avize", "Priz",
+            "Kablo", "Adaptör", "Batarya", "Kumanda", "Hoparlör", "Mikrofon", "Kulaklık", "Klavye", "Mouse (Fare)", "Yazıcı",
+            "Tarayıcı", "Monitör", "Tencere", "Çaydanlık", "Cezve", "Sürahi", "Kavanoz", "Rende", "Süzgeç", "Huni",
+            "Oklava", "Merdane", "Tirbuşon", "Açacak", "Deterjan", "Yumuşatıcı", "Mandal", "Elektrik", "Fatura", "Sepet",
+            "Poşet", "Fiş", "Kasiyer", "Müşteri", "İndirim", "Kampanya", "Vitrin", "Ansiklopedi", "Halüsinasyon", "Manipülasyon",
+            "Organizasyon", "Navigasyon", "Enformasyon", "Dekorasyon", "Restorasyon", "İzolasyon", "Simülasyon", "Motivasyon", "Konsantrasyon", "Koordinasyon",
+            "İletişim", "Teknoloji", "Edebiyat", "Matematik", "Cumhuriyet", "Demokrasi", "Özgürlük", "Adalet", "Eşitlik", "Vatandaşlık",
+            "Sorumluluk", "Disiplin", "Saygı", "Sevgi", "Hoşgörü", "Merhamet", "Vicdan", "Yetenek", "Başarı", "Tecrübe",
+            "Kariyer", "Gelecek", "Geçmiş", "Hatıra", "Macera", "Heyecan", "Korku", "Endişe", "Şüphe", "Merak",
+            "Tesadüf", "Mucize", "Efsane", "Hikaye", "Roman", "Şiir", "Masal", "Biyografi", "Belgesel", "Yönetmen",
+            "Senaryo", "Oyuncu", "Karakter", "Festival", "Karnaval", "Olimpiyat", "Şampiyona", "Turnuva", "Madalya", "Kupa",
+            "Antrenman", "Egzersiz", "Sağlık", "Beslenme", "Diyet", "Kalori", "Vitamin", "Protein", "Mineral", "Enerji",
+            "Atmosfer", "Evren", "Galaksi", "Gezegen", "Yıldız", "Kuyrukluyıldız", "Göktaşı", "Teleskop", "Mikroskop", "Termometre",
+            "Barometre", "Kronometre", "Pusula", "Harita", "Küre", "Atlas", "Sözlük", "Kılavuz", "Katalog", "Broşür",
+            "Davetiye", "Diploma", "Sertifika", "Plaket", "Heykel", "Tablo",
+            "El", "Kol", "Göz", "Kaş", "Saç", "Diş", "Dil", "Baş", "Diz", "Bel", "Sırt", "Can", "Kan", "Ter", "Su", "Süt", "Bal", "Pekmez",
+            "Reçel", "Yağ", "Un", "Tuz", "Nar", "Dut", "Muz", "Ok", "Yay", "At", "Tay", "Zil", "Çan", "Mum", "Pil", "Tel", "Küp", "Zar", "Pul",
+            "Çim", "Yol", "Han", "Köy", "İl", "Çöl", "Buz", "Dağ", "Taş", "Koş", "Gel", "Dur", "Bak", "Gör", "Sev", "Gül", "Yaz", "Kış", "Güz",
+            "Yıl", "Ay", "Gün", "Saat", "Dakika", "Sabah", "Akşam", "Gece", "Yarın", "Dün", "Bugün", "Mavi", "Sarı", "Yeşil", "Siyah", "Beyaz",
+            "Mor", "Gri", "Laz", "Türk", "Kürt", "Rus", "Çin", "Cüzdan", "Anahtarlık", "Çakmak", "Küllük", "Tespih", "Bilet", "Jeton", "Harita",
+            "Dürbün", "Kask", "Korna", "Fren", "Gaz", "Debriyaj", "Vites", "Lastik", "Jant", "Tampon", "Silecek", "Torpido", "Bagaj", "Kaput",
+            "Motor", "Egzoz", "Benzin", "Mazot", "Lpg", "İstasyon", "Tamirci", "Tornavida", "Pense", "Çekiç", "Keser", "Testere", "Matkap",
+            "Vida", "Çivi", "Somun", "Kilit", "Menteşe", "Musluk", "Lavabo", "Küvet", "Fayans", "Parke", "Mermer", "Beton", "Tuğla", "Çimento",
+            "Kiremit", "Badana", "Boya", "Rulo", "Merdiven", "Balkon", "Teras", "Havuz", "Kumsal", "Orman", "Mağara", "Şelale", "Irmak", "Nehir",
+            "Göl", "Ada", "Yarımada", "Kıta", "Ülke", "Şehir", "Kasaba", "Mezra", "Yayla", "Oba", "Çadır", "Kamp", "Memnuniyet", "Mecburiyet",
+            "Samimiyet", "Hassasiyet", "Emniyet", "Hürriyet", "Milliyet", "Zihniyet", "Ciddiyet", "Faaliyet", "Kabiliyet", "Mesuliyet", "Mağduriyet",
+            "Teslimiyet", "İslamiyet", "Hristiyanlık", "Musevilik", "Budizm", "Ateizm", "Deizm", "Agnostisizm", "Sosyalizm", "Komünizm", "Kapitalizm",
+            "Faşizm", "Liberalizm", "Romantizm", "Realizm", "Sürrealizm", "Dadaizm", "Kübizm", "Fütürizm", "Egzistansiyalizm", "Antibiyotik",
+            "Probiyotik", "Analjezik", "Antiseptik", "Estetik", "Kozmetik", "Genetik", "Sibernetik", "Aritmetik", "İstatistik", "Lojistik", "Balistik",
+            "Turistik", "Otantik", "Romantik", "Sempatik", "Antipatik", "Fantastik", "Nostaljik", "Stratejik", "Psikolojik", "Teknolojik", "Biyolojik",
+            "Jeolojik", "Arkeolojik", "Sosyolojik", "Ekonomik", "Ergonomik", "Astronomik", "Gastronomik", "Panoramik", "Akademik", "Pandemi", "Epidemi",
+            "Karantina", "Dezenfeksiyon", "Sterilizasyon", "Operasyon", "Spekülasyon", "Enflasyon", "Devalüasyon", "Resesyon", "Depresyon", "Tansiyon",
+            "Koleksiyon", "Enfeksiyon", "Enjeksiyon", "Projeksiyon", "Direksiyon", "Komisyon", "Misyon", "Vizyon", "Radyasyon", "Varyasyon", "Kombinasyon",
+            "İllüzyon", "Konfederasyon", "Federasyon", "İstihbarat", "İstikbal", "İstiklal", "İhtimal", "İhmal", "İkbal", "İdeal"
+        ];
+
+        let teamNames = { 1: "Takım 1", 2: "Takım 2" };
+        let teamScores = { 1: 0, 2: 0 };
+        
+        let currentTeam = 1;
+        let currentRound = 1;
+        let targetRounds = 3; 
+        
+        let roundScore = 0;
+        let timerVal = 0;
+        let passLimit = 5;
+        let currentPasses = 5;
+        let timerInterval;
+        
+        let usedWordsGlobal = new Set();
+        let currentWords = [];
+        let isAnimating = false;
+
+        window.onload = function() {
+            setTimeout(() => {
+                document.getElementById('loading-screen').style.opacity = '0';
+                document.getElementById('main-app').style.opacity = '1';
+                setTimeout(() => { document.getElementById('loading-screen').style.display = 'none'; }, 500);
+            }, 2000);
+        };
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        function updateTopScoreboard() {
+            document.getElementById('tsName1').innerText = teamNames[1];
+            document.getElementById('tsName2').innerText = teamNames[2];
+            
+            let t1Display = teamScores[1];
+            let t2Display = teamScores[2];
+            
+            if (currentTeam === 1) t1Display += roundScore;
+            else t2Display += roundScore;
+
+            document.getElementById('tsScore1').innerText = t1Display;
+            document.getElementById('tsScore2').innerText = t2Display;
+
+            if(currentTeam === 1) {
+                document.getElementById('tsBox1').classList.add('active-turn');
+                document.getElementById('tsBox2').classList.remove('active-turn');
+            } else {
+                document.getElementById('tsBox1').classList.remove('active-turn');
+                document.getElementById('tsBox2').classList.add('active-turn');
+            }
+        }
+
+        function validateAndStart() {
+            const rInput = document.getElementById('roundInput').value;
+            const errorDiv = document.getElementById('errorMsg');
+
+            if (rInput === "" || isNaN(rInput) || parseInt(rInput) < 1) {
+                errorDiv.style.display = 'block';
+                return;
+            }
+            errorDiv.style.display = 'none';
+
+            const t1 = document.getElementById('team1Input').value.trim();
+            const t2 = document.getElementById('team2Input').value.trim();
+            if (t1) teamNames[1] = t1;
+            if (t2) teamNames[2] = t2;
+
+            targetRounds = parseInt(rInput);
+            timerVal = parseInt(document.getElementById('timeSelect').value);
+            passLimit = parseInt(document.getElementById('passSelect').value);
+
+            teamScores = { 1: 0, 2: 0 };
+            currentRound = 1;
+            currentTeam = 1;
+
+            prepareReadyScreen();
+        }
+
+        function prepareReadyScreen() {
+            const badge = document.getElementById('roundBadge');
+            const tieMsg = document.getElementById('tieMessage');
+            
+            badge.innerText = `${currentRound}. RAUNT / ${targetRounds}`;
+            badge.classList.remove('overtime-badge');
+            tieMsg.style.display = 'none';
+            
+            document.getElementById('readyTeamName').innerText = teamNames[currentTeam];
+            showScreen('ready-screen');
+        }
+
+        function startGameRound() {
+            roundScore = 0;
+            currentPasses = passLimit; 
+            let timeLeft = timerVal;
+            
+            let availableWords = wordPool.filter(word => !usedWordsGlobal.has(word));
+            if (availableWords.length < 20) {
+                usedWordsGlobal.clear();
+                availableWords = [...wordPool];
+            }
+            currentWords = [...availableWords];
+            
+            isAnimating = false;
+
+            document.getElementById('currentTeamDisplay').innerText = "Sıra: " + teamNames[currentTeam];
+            updateTopScoreboard();
+            updatePassButton(); 
+            
+            showScreen('game-screen');
+            nextWord(false);
+
+            clearInterval(timerInterval);
+            updateTimerText(timeLeft);
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerText(timeLeft);
+                if (timeLeft <= 0) {
+                    finishTurn();
+                }
+            }, 1000);
+        }
+
+        function updateTimerText(t) {
+            const m = Math.floor(t / 60).toString().padStart(2, '0');
+            const s = (t % 60).toString().padStart(2, '0');
+            document.getElementById('timerDisplay').innerText = `${m}:${s}`;
+        }
+
+        function updatePassButton() {
+            const btn = document.getElementById('btnPass');
+            
+            if (currentPasses === -1) {
+                btn.innerText = "PAS (∞)";
+                btn.classList.remove('disabled');
+            } else {
+                btn.innerText = `PAS (${currentPasses})`;
+                if (currentPasses <= 0) {
+                    btn.classList.add('disabled');
+                    btn.innerText = "PAS BİTTİ";
+                } else {
+                    btn.classList.remove('disabled');
+                }
+            }
+        }
+
+        function getNextWord() {
+            if (currentWords.length === 0) return "TÜM KELİMELER BİTTİ!";
+            const rnd = Math.floor(Math.random() * currentWords.length);
+            const w = currentWords[rnd];
+            currentWords.splice(rnd, 1);
+            usedWordsGlobal.add(w);
+            return w;
+        }
+
+        function nextWord(direction) {
+            const card = document.getElementById('wordCard');
+            const txt = document.getElementById('wordText');
+
+            if (!direction) {
+                txt.innerText = getNextWord();
+                return;
+            }
+
+            if (isAnimating) return;
+            isAnimating = true;
+
+            if (direction === 'right') card.classList.add('slide-right');
+            else card.classList.add('slide-left');
+
+            setTimeout(() => {
+                txt.innerText = getNextWord();
+                card.classList.remove('slide-right', 'slide-left');
+                isAnimating = false;
+            }, 300);
+        }
+
+        function handleCorrect() {
+            if (isAnimating) return;
+            roundScore++;
+            updateTopScoreboard(); 
+            nextWord('right');
+        }
+
+        function handlePass() {
+            if (isAnimating) return;
+            
+            if (currentPasses !== -1 && currentPasses <= 0) return;
+
+            if (currentPasses !== -1) {
+                currentPasses--;
+            }
+
+            updatePassButton();
+            nextWord('left');
+        }
+
+        function finishTurn() {
+            clearInterval(timerInterval);
+            teamScores[currentTeam] += roundScore;
+            
+            let isGameOver = false;
+            if (currentRound === targetRounds && currentTeam === 2) {
+                if (teamScores[1] !== teamScores[2]) {
+                    isGameOver = true;
+                }
+            }
+
+            if (isGameOver) {
+                showGameOver();
+            } else {
+                document.getElementById('roundScoreDisplay').innerText = `+${roundScore}`;
+                document.getElementById('resT1').innerText = `${teamNames[1]}: ${teamScores[1]}`;
+                document.getElementById('resT2').innerText = `${teamNames[2]}: ${teamScores[2]}`;
+                showScreen('turn-result-screen');
+            }
+        }
+
+        function nextTurnLogic() {
+            if (currentTeam === 1) {
+                currentTeam = 2;
+                prepareReadyScreen();
+            } else {
+                if (currentRound < targetRounds) {
+                    currentRound++;
+                    currentTeam = 1;
+                    prepareReadyScreen();
+                } else {
+                    targetRounds++; 
+                    currentRound++; 
+                    currentTeam = 1; 
+                    prepareReadyScreen(); 
+                    const badge = document.getElementById('roundBadge');
+                    const tieMsg = document.getElementById('tieMessage');
+                    badge.innerText = "UZATMA RAUNDU";
+                    badge.classList.add('overtime-badge');
+                    tieMsg.style.display = 'block';
+                }
+            }
+        }
+
+        function showGameOver() {
+            let winner = "";
+            if (teamScores[1] > teamScores[2]) winner = teamNames[1];
+            else if (teamScores[2] > teamScores[1]) winner = teamNames[2];
+            else winner = "DOSTLUK";
+
+            document.getElementById('winnerName').innerText = winner;
+            document.getElementById('finalT1Name').innerText = teamNames[1];
+            document.getElementById('finalT1Score').innerText = teamScores[1];
+            document.getElementById('finalT2Name').innerText = teamNames[2];
+            document.getElementById('finalT2Score').innerText = teamScores[2];
+            
+            showScreen('game-over-screen');
+        }
+
+        function resetGame() {
+            showScreen('setup-screen');
+        }
+    </script>
+</body>
+</html>
